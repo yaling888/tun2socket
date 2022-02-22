@@ -7,6 +7,8 @@ import (
 	"github.com/kr328/tun2socket/binding"
 	L "github.com/kr328/tun2socket/log"
 	"github.com/kr328/tun2socket/redirect"
+
+	"golang.org/x/sys/cpu"
 )
 
 type TCPHandler func(conn net.Conn, endpoint *binding.Endpoint)
@@ -30,8 +32,6 @@ type Tun2Socket struct {
 	tcpHandler    TCPHandler
 	udpHandler    redirect.UDPReceiver
 	allocator     redirect.UDPAllocator
-
-	log L.Logger
 }
 
 type fakeTCPConn struct {
@@ -75,11 +75,16 @@ func NewTun2Socket(device TunDevice, mtu int, gateway net.IP, mirror net.IP) *Tu
 		allocator: func(length int) []byte {
 			return make([]byte, length)
 		},
-		log: &L.DefaultLogger{},
 	}
 }
 
 func (t *Tun2Socket) Start() {
+	if cpu.X86.HasAVX2 {
+		L.I("initial sumAVX2")
+	} else if cpu.ARM64.HasASIMD {
+		L.I("initial sumASIMD")
+	}
+
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
@@ -108,11 +113,7 @@ func (t *Tun2Socket) Close() {
 }
 
 func (t *Tun2Socket) SetLogger(logger L.Logger) {
-	if logger == nil {
-		t.log = &L.DefaultLogger{}
-	} else {
-		t.log = logger
-	}
+	L.SetLogger(logger)
 }
 
 func (t *Tun2Socket) SetClosedHandler(handler ClosedHandler) {
@@ -153,24 +154,24 @@ func (t *Tun2Socket) resetUDPHandler() {
 
 func (t *Tun2Socket) startTCP() {
 	go func() {
-		defer t.log.I("TCP redirect exited")
+		defer L.I("TCP redirect exited")
 		defer t.tcpRedirect.Close()
 
 		port, err := t.tcpRedirect.Listen()
 		if err != nil {
-			t.log.E("Listen TCP redirect failure", err.Error())
+			L.E("Listen TCP redirect failure", err.Error())
 			t.Close()
 			return
 		}
 
 		t.packetRedirect.ResetTCP(uint16(port))
 
-		t.log.I("Listen TCP redirect %d", port)
+		L.I("Listen TCP redirect %d", port)
 
 		for !t.closed && t.tcpRedirect.IsAlive() {
 			conn, addr, err := t.tcpRedirect.Accept()
 			if err != nil {
-				t.log.W("TCP Redirect receive error: %s", err.Error())
+				L.W("TCP Redirect receive error: %s", err.Error())
 				continue
 			}
 
@@ -194,6 +195,6 @@ func (t *Tun2Socket) startPacket() {
 	go func() {
 		t.packetRedirect.Exec()
 		t.Close()
-		t.log.I("Packet redirect exited")
+		L.I("Packet redirect exited")
 	}()
 }

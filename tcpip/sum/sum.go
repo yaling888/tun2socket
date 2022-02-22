@@ -1,16 +1,9 @@
 package sum
 
-func Sum(b []byte) uint32 {
-	var sum uint32
+var sum = sumCompat
 
-	n := len(b)
-	for i := 0; i < n; i = i + 2 {
-		sum += uint32(b[i]) << 8
-		if i+1 < n {
-			sum += uint32(b[i+1])
-		}
-	}
-	return sum
+func Sum(b []byte) uint32 {
+	return sum(b)
 }
 
 func Checksum(sum uint32, b []byte) (answer [2]byte) {

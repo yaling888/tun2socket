@@ -59,7 +59,7 @@ func (t *TCPRedirect) Accept() (*net.TCPConn, *net.TCPAddr, error) {
 		return nil, nil, ErrInvalidSource
 	}
 
-	_ = conn.SetKeepAlive(false)
+	// _ = conn.SetKeepAlive(false)
 
 	return conn, addr, nil
 }

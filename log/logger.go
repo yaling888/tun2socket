@@ -1,7 +1,5 @@
 package log
 
-import "log"
-
 type Logger interface {
 	D(format string, args ...interface{})
 	I(format string, args ...interface{})
@@ -9,20 +7,36 @@ type Logger interface {
 	E(format string, args ...interface{})
 }
 
-type DefaultLogger struct{}
+var logger Logger
 
-func (d *DefaultLogger) D(format string, args ...interface{}) {
-	log.Printf("[DEBUG] "+format, args...)
+func SetLogger(log Logger) {
+	logger = log
 }
 
-func (d *DefaultLogger) I(format string, args ...interface{}) {
-	log.Printf("[INFO]  "+format, args...)
+func D(format string, args ...interface{}) {
+	if logger == nil {
+		return
+	}
+	logger.D(format, args...)
 }
 
-func (d *DefaultLogger) W(format string, args ...interface{}) {
-	log.Printf("[WARN]  "+format, args...)
+func I(format string, args ...interface{}) {
+	if logger == nil {
+		return
+	}
+	logger.I(format, args...)
 }
 
-func (d *DefaultLogger) E(format string, args ...interface{}) {
-	log.Printf("[ERROR] "+format, args...)
+func W(format string, args ...interface{}) {
+	if logger == nil {
+		return
+	}
+	logger.W(format, args...)
+}
+
+func E(format string, args ...interface{}) {
+	if logger == nil {
+		return
+	}
+	logger.E(format, args...)
 }
