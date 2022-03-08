@@ -2,10 +2,10 @@ package tcpip
 
 var zeroChecksum = [2]byte{0x00, 0x00}
 
-var sum = sumCompat
+var SumFnc = SumCompat
 
 func Sum(b []byte) uint32 {
-	return sum(b)
+	return SumFnc(b)
 }
 
 // Checksum for Internet Protocol family headers

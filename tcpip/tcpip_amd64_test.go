@@ -21,8 +21,8 @@ func Test_SumAVX2(t *testing.T) {
 				t.Skipf("Rand read failed: %v", err)
 			}
 
-			compat := sumCompat(bytes[:size])
-			avx := sumAVX2(bytes[:size])
+			compat := SumCompat(bytes[:size])
+			avx := SumAVX2(bytes[:size])
 
 			if compat != avx {
 				t.Errorf("Sum of length=%d mismatched", size)
@@ -46,6 +46,6 @@ func Benchmark_SumAVX2(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		sumAVX2(bytes)
+		SumAVX2(bytes)
 	}
 }

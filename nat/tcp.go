@@ -3,7 +3,6 @@ package nat
 import (
 	"encoding/binary"
 	"net"
-	"syscall"
 	"time"
 )
 
@@ -33,14 +32,9 @@ func (t *TCP) Accept() (net.Conn, error) {
 		return nil, net.InvalidAddrError("unknown remote addr")
 	}
 
-	_ = c.SetKeepAlive(false)
+	// _ = c.SetKeepAlive(false)
 
-	sys, err := c.SyscallConn()
-	if err == nil {
-		_ = sys.Control(func(fd uintptr) {
-			_ = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_NO_CHECK, 1)
-		})
-	}
+	addition(c)
 
 	return &conn{
 		Conn:  c,

@@ -9,7 +9,7 @@ import (
 //go:noescape
 func sumAsmNeon(data unsafe.Pointer, length uintptr) uintptr
 
-func sumNeon(data []byte) uint32 {
+func SumNeon(data []byte) uint32 {
 	if len(data) == 0 {
 		return 0
 	}
@@ -19,6 +19,6 @@ func sumNeon(data []byte) uint32 {
 
 func init() {
 	if cpu.ARM64.HasASIMD {
-		sum = sumNeon
+		SumFnc = SumNeon
 	}
 }

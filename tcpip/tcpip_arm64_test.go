@@ -21,7 +21,7 @@ func Test_SumNeon(t *testing.T) {
 				t.Skipf("Rand read failed: %v", err)
 			}
 
-			compat := sumCompat(bytes[:size])
+			compat := SumCompat(bytes[:size])
 			neon := sumNeon(bytes[:size])
 
 			if compat != neon {
