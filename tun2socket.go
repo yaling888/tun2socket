@@ -171,7 +171,7 @@ func (t *Tun2Socket) startTCP() {
 		for !t.closed && t.tcpRedirect.IsAlive() {
 			conn, addr, err := t.tcpRedirect.Accept()
 			if err != nil {
-				L.W("TCP Redirect receive error: %s", err.Error())
+				// L.W("TCP Redirect receive error: %s", err.Error())
 				continue
 			}
 

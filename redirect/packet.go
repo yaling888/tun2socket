@@ -87,7 +87,9 @@ func (r *Redirect) Exec() {
 				return
 			}
 
-			_, _ = r.device.Write(buffer)
+			if len(buffer) > 0 {
+				_, _ = r.device.Write(buffer)
+			}
 
 			r.pool.Put(buffer[:cap(buffer)])
 		}
@@ -305,8 +307,11 @@ func (r *Redirect) SendUDP(payload []byte, endpoint *binding.Endpoint) error {
 			return nil
 		}
 
-		_, err := r.device.Write(data)
-		return err
+		if len(data) > 0 {
+			_, err := r.device.Write(data)
+			return err
+		}
+		return nil
 	}
 
 	return ErrUnsupported

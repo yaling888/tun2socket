@@ -1,9 +1,9 @@
-package sum
+package utils
 
-var sum = sumCompat
+var SumFnc = SumCompat
 
 func Sum(b []byte) uint32 {
-	return sum(b)
+	return SumFnc(b)
 }
 
 func Checksum(sum uint32, b []byte) (answer [2]byte) {

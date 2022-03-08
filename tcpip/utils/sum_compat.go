@@ -1,6 +1,6 @@
-package sum
+package utils
 
-func sumCompat(b []byte) (sum uint32) {
+func SumCompat(b []byte) (sum uint32) {
 	n := len(b)
 	if n&1 != 0 {
 		n--

@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"net"
 
-	"github.com/kr328/tun2socket/tcpip/sum"
+	"github.com/kr328/tun2socket/tcpip/utils"
 )
 
 const (
@@ -32,12 +32,12 @@ func (pkt UDPPacket) Verify(sourceAddress net.IP, targetAddress net.IP) error {
 		}()
 
 		s := uint32(0)
-		s += sum.Sum(sourceAddress)
-		s += sum.Sum(targetAddress)
+		s += utils.Sum(sourceAddress)
+		s += utils.Sum(targetAddress)
 		s += uint32(UDP)
 		s += uint32(len(pkt))
 
-		check := sum.Checksum(s, pkt)
+		check := utils.Checksum(s, pkt)
 		if check[0] != checksum[0] || check[1] != checksum[1] {
 			return ErrInvalidChecksum
 		}
@@ -51,12 +51,12 @@ func (pkt UDPPacket) ResetChecksum(sourceAddress net.IP, targetAddress net.IP) {
 	pkt[7] = 0
 
 	s := uint32(0)
-	s += sum.Sum(sourceAddress)
-	s += sum.Sum(targetAddress)
+	s += utils.Sum(sourceAddress)
+	s += utils.Sum(targetAddress)
 	s += uint32(UDP)
 	s += uint32(len(pkt))
 
-	checksum := sum.Checksum(s, pkt)
+	checksum := utils.Checksum(s, pkt)
 
 	pkt[6] = checksum[0]
 	pkt[7] = checksum[1]

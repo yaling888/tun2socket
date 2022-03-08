@@ -1,4 +1,4 @@
-package sum
+package utils
 
 import (
 	"unsafe"
@@ -9,7 +9,7 @@ import (
 //go:noescape
 func sumAsmAvx2(data unsafe.Pointer, length uintptr) uintptr
 
-func sumAVX2(data []byte) uint32 {
+func SumAVX2(data []byte) uint32 {
 	if len(data) == 0 {
 		return 0
 	}
@@ -19,6 +19,6 @@ func sumAVX2(data []byte) uint32 {
 
 func init() {
 	if cpu.X86.HasAVX2 {
-		sum = sumAVX2
+		SumFnc = SumAVX2
 	}
 }

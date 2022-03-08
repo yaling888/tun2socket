@@ -3,7 +3,7 @@ package packet
 import (
 	"net"
 
-	"github.com/kr328/tun2socket/tcpip/sum"
+	"github.com/kr328/tun2socket/tcpip/utils"
 )
 
 const (
@@ -26,7 +26,7 @@ func (pkt ICMPPacket) Verify(net.IP, net.IP) error {
 		pkt[3] = checksum[1]
 	}()
 
-	check := sum.Checksum(0, pkt)
+	check := utils.Checksum(0, pkt)
 	if checksum[0] != check[0] || checksum[1] != check[1] {
 		return ErrInvalidChecksum
 	}
@@ -38,7 +38,7 @@ func (pkt ICMPPacket) ResetChecksum(net.IP, net.IP) {
 	pkt[2] = 0
 	pkt[3] = 0
 
-	check := sum.Checksum(0, pkt)
+	check := utils.Checksum(0, pkt)
 
 	pkt[2] = check[0]
 	pkt[3] = check[1]

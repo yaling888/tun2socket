@@ -1,4 +1,4 @@
-package sum
+package utils
 
 import (
 	"crypto/rand"
@@ -21,6 +21,6 @@ func Benchmark_SumCompat(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		sumCompat(bytes)
+		SumCompat(bytes)
 	}
 }

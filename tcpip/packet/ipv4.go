@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"net"
 
-	"github.com/kr328/tun2socket/tcpip/sum"
+	"github.com/kr328/tun2socket/tcpip/utils"
 )
 
 const (
@@ -46,7 +46,7 @@ func (pkt IPv4Packet) Verify() error {
 	pkt[11] = 0
 	defer copy(pkt[10:12], checksum)
 
-	answer := sum.Checksum(0, pkt[:headerLength])
+	answer := utils.Checksum(0, pkt[:headerLength])
 
 	if answer[0] != checksum[0] || answer[1] != checksum[1] {
 		return ErrInvalidChecksum
@@ -86,7 +86,7 @@ func (pkt IPv4Packet) ResetChecksum() error {
 	pkt[10] = 0
 	pkt[11] = 0
 
-	answer := sum.Checksum(0, pkt[:headerLength])
+	answer := utils.Checksum(0, pkt[:headerLength])
 	copy(pkt[10:12], answer[:])
 
 	return nil
