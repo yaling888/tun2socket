@@ -2,16 +2,38 @@ package tcpip
 
 import (
 	"encoding/binary"
-	"net"
+	"errors"
+	"net/netip"
 )
 
 type IPProtocol = byte
 
+type IP interface {
+	Payload() []byte
+
+	SourceIP() netip.Addr
+
+	DestinationIP() netip.Addr
+
+	SetSourceIP(ip netip.Addr)
+
+	SetDestinationIP(ip netip.Addr)
+
+	Protocol() IPProtocol
+
+	DecTimeToLive()
+
+	ResetChecksum()
+
+	PseudoSum() uint32
+}
+
 // IPProtocol type
 const (
-	ICMP IPProtocol = 0x01
-	TCP             = 0x06
-	UDP             = 0x11
+	ICMP   IPProtocol = 0x01
+	TCP               = 0x06
+	UDP               = 0x11
+	ICMPv6            = 0x3a
 )
 
 const (
@@ -19,7 +41,20 @@ const (
 	FlagMoreFragment = 1 << 2
 )
 
-const IPv4HeaderSize = 20
+const (
+	IPv4HeaderSize = 20
+
+	IPv4Version = 4
+
+	IPv4OptionsOffset   = 20
+	IPv4PacketMinLength = IPv4OptionsOffset
+)
+
+var (
+	ErrInvalidLength    = errors.New("invalid packet length")
+	ErrInvalidIPVersion = errors.New("invalid ip version")
+	ErrInvalidChecksum  = errors.New("invalid checksum")
+)
 
 type IPv4Packet []byte
 
@@ -97,25 +132,23 @@ func (p IPv4Packet) Offset() uint16 {
 	return (offset & 0x1fff) * 8
 }
 
-func (p IPv4Packet) SourceIP() net.IP {
-	return net.IP{p[12], p[13], p[14], p[15]}
+func (p IPv4Packet) SourceIP() netip.Addr {
+	return netip.AddrFrom4([4]byte{p[12], p[13], p[14], p[15]})
 }
 
-func (p IPv4Packet) SetSourceIP(ip net.IP) {
-	ip = ip.To4()
-	if ip != nil {
-		copy(p[12:16], ip)
+func (p IPv4Packet) SetSourceIP(ip netip.Addr) {
+	if ip.Is4() {
+		copy(p[12:16], ip.AsSlice())
 	}
 }
 
-func (p IPv4Packet) DestinationIP() net.IP {
-	return net.IP{p[16], p[17], p[18], p[19]}
+func (p IPv4Packet) DestinationIP() netip.Addr {
+	return netip.AddrFrom4([4]byte{p[16], p[17], p[18], p[19]})
 }
 
-func (p IPv4Packet) SetDestinationIP(ip net.IP) {
-	ip = ip.To4()
-	if ip != nil {
-		copy(p[16:20], ip)
+func (p IPv4Packet) SetDestinationIP(ip netip.Addr) {
+	if ip.Is4() {
+		copy(p[16:20], ip.AsSlice())
 	}
 }
 
@@ -128,12 +161,16 @@ func (p IPv4Packet) SetChecksum(sum [2]byte) {
 	p[11] = sum[1]
 }
 
-func (p IPv4Packet) TimeToLive() byte {
+func (p IPv4Packet) TimeToLive() uint8 {
 	return p[8]
 }
 
-func (p IPv4Packet) SetTimeToLive(ttl byte) {
+func (p IPv4Packet) SetTimeToLive(ttl uint8) {
 	p[8] = ttl
+}
+
+func (p IPv4Packet) DecTimeToLive() {
+	p[8] = p[8] - uint8(1)
 }
 
 func (p IPv4Packet) ResetChecksum() {
@@ -152,3 +189,35 @@ func (p IPv4Packet) PseudoSum() uint32 {
 func (p IPv4Packet) Valid() bool {
 	return len(p) >= IPv4HeaderSize && uint16(len(p)) >= p.TotalLen()
 }
+
+func (p IPv4Packet) Verify() error {
+	if len(p) < IPv4PacketMinLength {
+		return ErrInvalidLength
+	}
+
+	checksum := []byte{p[10], p[11]}
+	headerLength := uint16(p[0]&0xF) * 4
+	packetLength := binary.BigEndian.Uint16(p[2:])
+
+	if p[0]>>4 != 4 {
+		return ErrInvalidIPVersion
+	}
+
+	if uint16(len(p)) < packetLength || packetLength < headerLength {
+		return ErrInvalidLength
+	}
+
+	p[10] = 0
+	p[11] = 0
+	defer copy(p[10:12], checksum)
+
+	answer := Checksum(0, p[:headerLength])
+
+	if answer[0] != checksum[0] || answer[1] != checksum[1] {
+		return ErrInvalidChecksum
+	}
+
+	return nil
+}
+
+var _ IP = (*IPv4Packet)(nil)

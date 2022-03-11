@@ -1,25 +1,23 @@
 package nat
 
 import (
-	"encoding/binary"
 	"io"
 	"net"
+	"net/netip"
 
 	"github.com/Kr328/tun2socket/tcpip"
 )
 
 func Start(
 	device io.ReadWriter,
-	gateway net.IP,
-	portal net.IP,
+	gateway netip.Addr,
+	portal netip.Addr,
 ) (*TCP, *UDP, error) {
-	portal = portal.To4()
-	gateway = gateway.To4()
-	if portal == nil || gateway == nil {
+	if !portal.Is4() || !gateway.Is4() {
 		return nil, nil, net.InvalidAddrError("only ipv4 supported")
 	}
 
-	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4zero, Port: 0})
+	listener, err := net.ListenTCP("tcp4", nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -52,20 +50,45 @@ func Start(
 
 			raw := buf[:n]
 
-			if !tcpip.IsIPv4(raw) {
-				continue
-			}
+			var (
+				ipVersion int
+				ip        tcpip.IP
+			)
 
-			ip := tcpip.IPv4Packet(raw)
-			if !ip.Valid() {
-				continue
-			}
+			ipVersion = tcpip.IPVersion(raw)
 
-			if ip.Flags()&tcpip.FlagMoreFragment != 0 {
-				continue
-			}
+			switch ipVersion {
+			case tcpip.IPv4Version:
+				ipv4 := tcpip.IPv4Packet(raw)
+				if !ipv4.Valid() {
+					continue
+				}
 
-			if ip.Offset() != 0 {
+				if ipv4.TimeToLive() == 0x00 {
+					continue
+				}
+
+				if ipv4.Flags()&tcpip.FlagMoreFragment != 0 {
+					continue
+				}
+
+				if ipv4.Offset() != 0 {
+					continue
+				}
+
+				ip = ipv4
+			case tcpip.IPv6Version:
+				ipv6 := tcpip.IPv6Packet(raw)
+				if !ipv6.Valid() {
+					continue
+				}
+
+				if ipv6.HopLimit() == 0x00 {
+					continue
+				}
+
+				ip = ipv6
+			default:
 				continue
 			}
 
@@ -76,22 +99,19 @@ func Start(
 					continue
 				}
 
-				if ip.DestinationIP().Equal(portal) {
-					if ip.SourceIP().Equal(gateway) && t.SourcePort() == gatewayPort {
+				if ip.DestinationIP() == portal {
+					if ip.SourceIP() == gateway && t.SourcePort() == gatewayPort {
 						tup := tab.tupleOf(t.DestinationPort())
 						if tup == zeroTuple {
 							continue
 						}
 
-						src := net.IP{0, 0, 0, 0}
-						dst := net.IP{0, 0, 0, 0}
-						binary.LittleEndian.PutUint32(src, tup.SourceIP)
-						binary.LittleEndian.PutUint32(dst, tup.DestinationIP)
-						ip.SetSourceIP(dst)
-						ip.SetDestinationIP(src)
-						t.SetDestinationPort(tup.SourcePort)
-						t.SetSourcePort(tup.DestinationPort)
+						ip.SetSourceIP(tup.DestinationAddr.Addr())
+						t.SetSourcePort(tup.DestinationAddr.Port())
+						ip.SetDestinationIP(tup.SourceAddr.Addr())
+						t.SetDestinationPort(tup.SourceAddr.Port())
 
+						ip.DecTimeToLive()
 						ip.ResetChecksum()
 						t.ResetChecksum(ip.PseudoSum())
 
@@ -99,10 +119,8 @@ func Start(
 					}
 				} else {
 					tup := tuple{
-						SourceIP:        binary.LittleEndian.Uint32(ip.SourceIP()),
-						DestinationIP:   binary.LittleEndian.Uint32(ip.DestinationIP()),
-						SourcePort:      t.SourcePort(),
-						DestinationPort: t.DestinationPort(),
+						SourceAddr:      netip.AddrPortFrom(ip.SourceIP(), t.SourcePort()),
+						DestinationAddr: netip.AddrPortFrom(ip.DestinationIP(), t.DestinationPort()),
 					}
 
 					port := tab.portOf(tup)
@@ -119,6 +137,7 @@ func Start(
 					t.SetSourcePort(port)
 					t.SetDestinationPort(gatewayPort)
 
+					ip.DecTimeToLive()
 					ip.ResetChecksum()
 					t.ResetChecksum(ip.PseudoSum())
 
@@ -140,13 +159,35 @@ func Start(
 
 				i.SetType(tcpip.ICMPTypePingResponse)
 
-				source := binary.LittleEndian.Uint32(ip.SourceIP())
-				destination := binary.LittleEndian.Uint32(ip.DestinationIP())
-				binary.LittleEndian.PutUint32(ip.SourceIP(), destination)
-				binary.LittleEndian.PutUint32(ip.DestinationIP(), source)
+				source := ip.SourceIP()
+				destination := ip.DestinationIP()
+				ip.SetSourceIP(destination)
+				ip.SetDestinationIP(source)
 
+				ip.DecTimeToLive()
 				ip.ResetChecksum()
 				i.ResetChecksum()
+
+				_, _ = device.Write(raw)
+			case tcpip.ICMPv6:
+				i := tcpip.ICMPv6Packet(ip.Payload())
+
+				if i.Type() != tcpip.ICMPv6EchoRequest || i.Code() != 0 {
+					continue
+				}
+
+				i.SetType(tcpip.ICMPv6EchoReply)
+
+				source := ip.SourceIP()
+				destination := ip.DestinationIP()
+				ip.SetSourceIP(destination)
+				ip.SetDestinationIP(source)
+
+				ip.DecTimeToLive()
+				ip.ResetChecksum()
+				i.ResetChecksum(ip.PseudoSum())
+
+				_, _ = device.Write(raw)
 			}
 		}
 	}()

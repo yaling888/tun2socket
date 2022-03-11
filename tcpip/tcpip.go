@@ -19,10 +19,6 @@ func Checksum(sum uint32, b []byte) (answer [2]byte) {
 	return
 }
 
-func IsIPv4(packet []byte) bool {
-	return len(packet) > 0 && (packet[0]>>4) == 4
-}
-
 func SetIPv4(packet []byte) {
 	packet[0] = (packet[0] & 0x0f) | (4 << 4)
 }

@@ -2,6 +2,7 @@ package tcpip
 
 import (
 	"encoding/binary"
+	"net"
 )
 
 const (
@@ -56,4 +57,34 @@ func (p TCPPacket) ResetChecksum(psum uint32) {
 
 func (p TCPPacket) Valid() bool {
 	return len(p) >= TCPHeaderSize
+}
+
+func (p TCPPacket) Verify(sourceAddress net.IP, targetAddress net.IP) error {
+	var checksum [2]byte
+	checksum[0] = p[16]
+	checksum[1] = p[17]
+
+	// reset checksum
+	p[16] = 0
+	p[17] = 0
+
+	// restore checksum
+	defer func() {
+		p[16] = checksum[0]
+		p[17] = checksum[1]
+	}()
+
+	// check checksum
+	s := uint32(0)
+	s += Sum(sourceAddress)
+	s += Sum(targetAddress)
+	s += uint32(TCP)
+	s += uint32(len(p))
+
+	check := Checksum(s, p)
+	if checksum[0] != check[0] || checksum[1] != check[1] {
+		return ErrInvalidChecksum
+	}
+
+	return nil
 }

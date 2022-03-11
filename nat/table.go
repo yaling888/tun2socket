@@ -2,6 +2,7 @@ package nat
 
 import (
 	"container/list"
+	"net/netip"
 )
 
 const (
@@ -12,10 +13,8 @@ const (
 var zeroTuple = tuple{}
 
 type tuple struct {
-	SourceIP        uint32
-	DestinationIP   uint32
-	SourcePort      uint16
-	DestinationPort uint16
+	SourceAddr      netip.AddrPort
+	DestinationAddr netip.AddrPort
 }
 
 type binding struct {

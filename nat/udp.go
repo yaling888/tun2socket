@@ -4,6 +4,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"net/netip"
 	"sync"
 
 	"github.com/Kr328/tun2socket/tcpip"
@@ -71,6 +72,9 @@ func (u *UDP) WriteTo(buf []byte, local net.Addr, remote net.Addr) (int, error) 
 		return 0, net.InvalidAddrError("invalid ip version")
 	}
 
+	srcNetip, _ := netip.AddrFromSlice(srcAddr.IP)
+	dstNetip, _ := netip.AddrFromSlice(dstAddr.IP)
+
 	ip := tcpip.IPv4Packet(u.buf[:])
 	tcpip.SetIPv4(ip)
 	ip.SetHeaderLen(tcpip.IPv4HeaderSize)
@@ -80,8 +84,8 @@ func (u *UDP) WriteTo(buf []byte, local net.Addr, remote net.Addr) (int, error) 
 	ip.SetFragmentOffset(0)
 	ip.SetTimeToLive(64)
 	ip.SetProtocol(tcpip.UDP)
-	ip.SetSourceIP(srcIP)
-	ip.SetDestinationIP(dstIP)
+	ip.SetSourceIP(srcNetip)
+	ip.SetDestinationIP(dstNetip)
 
 	udp := tcpip.UDPPacket(ip.Payload())
 	udp.SetLength(tcpip.UDPHeaderSize + uint16(len(buf)))
@@ -108,7 +112,7 @@ func (u *UDP) Close() error {
 	return nil
 }
 
-func (u *UDP) handleUDPPacket(ip tcpip.IPv4Packet, pkt tcpip.UDPPacket) {
+func (u *UDP) handleUDPPacket(ip tcpip.IP, pkt tcpip.UDPPacket) {
 	var c *call
 
 	u.lock.Lock()
@@ -122,11 +126,11 @@ func (u *UDP) handleUDPPacket(ip tcpip.IPv4Packet, pkt tcpip.UDPPacket) {
 
 	if c != nil {
 		c.source = &net.UDPAddr{
-			IP:   append(net.IP{}, ip.SourceIP()...),
+			IP:   ip.SourceIP().AsSlice(),
 			Port: int(pkt.SourcePort()),
 		}
 		c.destination = &net.UDPAddr{
-			IP:   append(net.IP{}, ip.DestinationIP()...),
+			IP:   ip.DestinationIP().AsSlice(),
 			Port: int(pkt.DestinationPort()),
 		}
 		c.n = copy(c.buf, pkt.Payload())
